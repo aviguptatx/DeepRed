@@ -21,8 +21,6 @@ def init_network(neural_net):
 
     return params_w, params_b
 
-
-    
 def sigmoid(Z):
     return 1/(1 + np.exp(-Z))
 
@@ -33,124 +31,43 @@ def forward_prop_layer(prev_A, curr_weights, curr_bias):
     new_vals = np.dot(curr_weights, prev_A) + curr_bias
     return sigmoid(new_vals), new_vals
 
-# def doBoth_function(params_w, params_b):
-#     #check train data
-#     activations = [None] * np.shape(X)[0]
-#     for forward_example in range(0, np.shape(X)[0]):
-#         Z = []
-#         for layer in range(0, len(neural_net)):
-#             # Forward prop
-#             if (layer == 0):
-#                 activations[forward_example] = X[forward_example]
-#             output_A, output_Z = forward_prop_layer(activations[forward_example], params_w[layer], params_b[layer])
-#             activations[forward_example] = output_A
-#             Z.append(output_Z)
+def test_errors_over_time(params_w, params_b):
+    test_set_errors = np.zeros((7, 1))
+    # Test set error calculation
+    for m in range (np.shape(test_X)[0]):
+        error, _ = test_function(params_w, params_b, m)
+        test_set_errors += error
+    return np.copy(test_set_errors) / np.shape(test_X)[0]
 
-#     #whatever error function gets
-#     error = 0
-#     for example in range(0, np.shape(X)[0]):
-#         error += -Y[example] * np.log(activations[example]) - (1 - Y[example]) * np.log(1 - activations[example])
-#     entropyLoss_train = error / np.shape(X)[0
-
-#     #num seats
-#     numSeatsWrong_train = 0
-#     for example in range(0, np.shape(X)[0]):
-#         numSeatsWrong_train += np.abs(Y[i] - activations[-1])
-
-
-#     #now check train data
-#     #check train data
-#     activations = [None] * np.shape(test_X)[0]
-#     for forward_example in range(0, np.shape(X)[0]):
-#         Z = []
-#         for layer in range(0, len(neural_net)):
-#             # Forward prop
-#             if (layer == 0):
-#                 activations[forward_example] = test_X[forward_example]
-#             output_A, output_Z = forward_prop_layer(activations[forward_example], params_w[layer], params_b[layer])
-#             activations[forward_example] = output_A
-#             Z.append(output_Z)
-
-#     #whatever error function gets
-#     error = 0
-#     for example in range(0, np.shape(test_X)[0]):
-#         error += -test_Y[example] * np.log(activations[example]) - (1 - test_Y[example]) * np.log(1 - activations[example])
-#     entropyLoss_train = error / np.shape(test_X)[0
-
-#     #entropy loss
-#     entropyLoss_test = 0
-#     #num seats wrong
-#     numSeatsWrong_test = 0
-#     for example in range(0, np.shape(test_X)[0]):
-#         numSeatsWrong_test += np.abs(test_Y[example] - activations[-1])
-
-#     return entropyLoss_train, numSeatsWrong_train, entropyLoss_test, numSeatsWrong_test
-
-# def showPlots(params_w, params_b):
-#     entropyLoss_train, numSeatsWrong_train, entropyLoss_test, numSeatsWrong_test = doBoth_function(params_w, params_b)
-#     #show entropy loss for train
-#     plt.subplot(2, 1, 1)
-#     plt.plot(entropyLoss_train)
-#     plt.ylabel('Entropy Loss Train')
-
-#     #show num seats wrong for train
-#     plt.subplot(2,1,2)
-#     plt.plot(numSeatsWrong_train)
-#     plt.ylabel('Num Seats Wrong Train')
-    
-#     #show num seats wrong for train
-#     plt.subplot(2,1,3)
-#     plt.plot(entropyLoss_test)
-#     plt.ylabel('Entropy Loss Test')
-
-#     #show num seats wrong for train
-#     plt.subplot(2,1,4)
-#     plt.plot(numSeatsWrong_test)
-#     plt.ylabel('Num Seats Wrong Test')
-
-#     plt.title(str(np.sum(numSeatsWrong) / len(numSeatsWrong)))
-#     plt.xlabel('Games')
-#     plt.show()
-
-
-def error_function(params_w, params_b):
-    activations = [None] * np.shape(X)[0]
-    for forward_example in range(0, np.shape(X)[0]):
+def error_function(params_w, params_b, test_inputs, test_outputs):
+    activations0 = [None] * np.shape(test_inputs)[0]
+    for forward_example in range(0, np.shape(test_inputs)[0]):
         Z = []
         for layer in range(0, len(neural_net)):
             # Forward prop
             if (layer == 0):
-                activations[forward_example] = X[forward_example]
-            output_A, output_Z = forward_prop_layer(activations[forward_example], params_w[layer], params_b[layer])
-            activations[forward_example] = output_A
+                activations0[forward_example] = test_inputs[forward_example]
+            output_A, output_Z = forward_prop_layer(activations0[forward_example], params_w[layer], params_b[layer])
+            activations0[forward_example] = output_A
             Z.append(output_Z)
 
+    activations0 = softmax(activations0)
+
     error = 0
-    for example in range(0, np.shape(X)[0]):
-        error += -Y[example] * np.log(activations[example]) - (1 - Y[example]) * np.log(1 - activations[example])
-    return error / np.shape(X)[0]
+    for example in range(0, np.shape(test_inputs)[0]):
+        # error += -Y[example] * np.log(activations0[example]) - (1 - Y[example]) * np.log(1 - activations0[example])
+        error += np.abs(test_outputs[example] - activations0[example])
+    return error / np.shape(test_inputs)[0]
 
-def test_function(params_w, params_b):
-    activations = []
-    Z = []
-    for layer in range(0, len(neural_net)):
-        # Forward prop
-        if (layer == 0):
-            activations.append(test_X[i])
-        output_A, output_Z = forward_prop_layer(activations[layer], params_w[layer], params_b[layer])
-        activations.append(output_A)
-        Z.append(output_Z)
-
-    result_temp = np.copy(activations[-1])
-    for gh in range(len(result_temp)):
-        result_temp[gh] = 0 if result_temp[gh] < .5 else 1
-
-    print("Test #" + str(i) + " | Pred: " + str(result_temp) + " | Real: " + str(test_Y[i]))
-
-    error = -test_Y[i] * np.log(activations[-1]) - (1 - test_Y[i]) * np.log(1 - activations[-1])
-    error2 = np.abs(test_Y[i] - activations[-1])
-
-    return np.sum(error) / 7, np.sum(error2)
+def softmax(x):
+    temporary = np.copy(x)
+    if (temporary.ndim == 2):
+        temporary = np.sum(temporary, axis = 1)
+        temporary = np.expand_dims(np.exp(temporary), axis = 1)
+    else:
+        temporary = np.expand_dims(temporary, axis = 1)
+        temporary = np.sum(np.exp(temporary), axis = 0)
+    return 3 * np.exp(x) / temporary
 
 def gradient_descent(grads_w, grads_b, alpha):
     weight_sum = 0
@@ -163,7 +80,7 @@ Y = []
 test_X = []
 test_Y = []
 
-for game_number in range(1, 2999):
+for game_number in range(1, 10000):
     file_name = "games\\" + str(game_number) + ".json"
     print(file_name)
     tempX, tempY = GameParser.populate_inputs(file_name)
@@ -172,7 +89,7 @@ for game_number in range(1, 2999):
         X.append(tempX)
         Y.append(tempY)
 
-for game_number in range(3000, 5999):
+for game_number in range(10000, 20000):
     file_name = "games\\" + str(game_number) + ".json"
     print(file_name)
     tempX, tempY = GameParser.populate_inputs(file_name)
@@ -206,17 +123,20 @@ neural_net = [{"j": 292, "k": 26},
               {"j": 26, "k": 7}]
 
 # Initialize weights and biases
-params_w, params_b = init_network(neural_net)
+# params_w, params_b = init_network(neural_net)
 
-# Load params using previously saves params (optional)
-# with open('params_w', 'rb') as f:
-#     params_w = pickle.load(f)
-# with open('params_b', 'rb') as g:
-#     params_b = pickle.load(g)
+# # Load params using previously saves params (optional)
+with open('params_w', 'rb') as f:
+    params_w = pickle.load(f)
+    print(params_w)
+with open('params_b', 'rb') as g:
+    params_b = pickle.load(g)
+    print(params_b)
 
 errors = []
-num_epochs = 5000
-learning_rate = .3
+test_errors = []
+num_epochs = 20000
+learning_rate = 1
 lambda_ = 0
 num_examples = np.shape(X)[0]
 
@@ -303,23 +223,8 @@ for epoch in range(0, num_epochs):
     params_w, params_b = gradient_descent(grads_w, grads_b, learning_rate)
 
     # Update error values for graphing
-    errors.append(error_function(params_w, params_b))
-
-# Results of final epoch
-# print("======== FINAL EPOCH RESULTS ========")
-# for i in range(len(RESULT)):
-#     for j in range(len(RESULT[i])):
-#         RESULT[i][j] = 0 if RESULT[i][j] < .5 else 1
-# for i in range(len(RESULT)):
-#     print("Test #" + str(i) + " | Pred: " + str(RESULT[i]) + " | Real: " + str(Y[i]))
-
-# Graph of Error vs Iterations
-#this errors needs to be of test set not train set
-plt.plot(errors)
-plt.ylabel('Error')
-plt.xlabel('Epoch')
-plt.legend(['1', '2','3', '4', '5', '6', '7'])
-plt.show()
+    errors.append(error_function(params_w, params_b, X, Y))
+    test_errors.append(error_function(params_w, params_b, test_X, test_Y))
 
 # Save params to files
 with open('params_w', 'wb') as f:
@@ -327,19 +232,17 @@ with open('params_w', 'wb') as f:
 with open('params_b', 'wb') as g:
   pickle.dump(params_b, g)
 
-# For each example
-logError = []
-numSeatsWrong = []
-for i in range(0, np.shape(test_X)[0]):
-    # errors.append(test_function(params_w, params_b))
-    error, seatWrong = test_function(params_w, params_b)
-    logError.append(error)
-    numSeatsWrong.append(seatWrong)
+# Training Error
+plt.subplot(2,1,1)
+plt.plot(errors)
+plt.ylabel('Training Error')
+plt.xlabel('Epoch')
+plt.legend(['1', '2','3', '4', '5', '6', '7'])
 
-
-#this errors needs to be of test set not train set
-plt.plot(numSeatsWrong)
-plt.title(str(np.sum(numSeatsWrong) / len(numSeatsWrong)))
-plt.ylabel('Seats Wrong')
-plt.xlabel('Games')
+# Test Error
+plt.subplot(2, 1, 2)
+plt.plot(test_errors)
+plt.ylabel('Test Error')
+plt.xlabel('Epoch')
+plt.legend(['1', '2','3', '4', '5', '6', '7'])
 plt.show()
