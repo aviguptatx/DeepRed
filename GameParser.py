@@ -1,4 +1,5 @@
 import json
+import random
 
 def populate_inputs(file_name):
     with open(file_name) as f:
@@ -16,6 +17,8 @@ def populate_inputs(file_name):
 
         # Length 7 = (1-7 roles)
         roles = []
+        # Length 7 = (1-7 roles)
+        my_role = []
         # Lenth 228 = 19 (1-7 - pres, 8-14 chanc, 15 pres claim, 16 chanc claim, 17 policy not enacted, 18 blue, 19 red) * 12 (# possible govs, including VZ)
         gov_data = []
         # Length 15 (1-7 - pres seat number) (8-14 - chancellor seat number) (15 - result)
@@ -31,7 +34,22 @@ def populate_inputs(file_name):
 
         # Roles
         for seat in range(0, 7):
-            roles.append(1 if data["players"][seat]["role"] == "fascist" else 0)
+            roles.append(1 if (data["players"][seat]["role"] == "fascist" or data["players"][seat]["role"] == "hitler") else 0)
+
+        # Pick one of the liberal
+        randomLib = random.randint(0, 4)
+        libCount = 0
+        confirmedSeat = 0
+        for seat in range(0, 7):
+            if data["players"][seat]["role"] == "liberal":
+                if libCount == randomLib:
+                    confirmedSeat = seat
+                libCount = libCount + 1
+
+        # Append the the my_role array to one-hot encode which seat the AI is playing
+        for seat in range(0, 7):
+            my_role.append(seat == confirmedSeat)
+                
     
         # For each government
         for gov in range(0, len(data["logs"])):
@@ -116,5 +134,5 @@ def populate_inputs(file_name):
         for i in range(len(bullet_data_2), 14):
             bullet_data_2.append(0)
 
-        game_data = gov_data + investigation_data + special_election_data + bullet_data_1 + bullet_data_2
-        return game_data, roles[0:1]
+        game_data = gov_data + investigation_data + special_election_data + bullet_data_1 + bullet_data_2 + my_role
+        return game_data, roles
