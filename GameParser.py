@@ -1,7 +1,7 @@
 import json
 import random
 
-def populate_inputs(file_name):
+def populate_inputs(file_name, game_number, lib_inc):
     with open(file_name) as f:
         data = json.load(f)
 
@@ -15,11 +15,15 @@ def populate_inputs(file_name):
         if data["gameSetting"]["rebalance7p"]:
             return None, None
 
+        # Keeps track of the number of lib and fas cards on the board
+        lib_card_count = 0
+        fas_card_count = 0
+        
         # Length 7 = (1-7 roles)
         roles = []
         # Length 7 = (1-7 roles)
         my_role = []
-        # Lenth 228 = 19 (1-7 - pres, 8-14 chanc, 15 pres claim, 16 chanc claim, 17 policy not enacted, 18 blue, 19 red) * 12 (# possible govs, including VZ)
+        # Lenth 252 = 21 (1-7 - pres, 8-14 chanc, 15 pres claim, 16 chanc claim, 17 policy not enacted, 18 blue, 19 red, 20 - number of blues on board after gov (0-5), 21 - number of reds on board after gov (0-6)) * 12 (# possible govs, including VZ)
         gov_data = []
         # Length 15 (1-7 - pres seat number) (8-14 - chancellor seat number) (15 - result)
         investigation_data = []
@@ -29,6 +33,9 @@ def populate_inputs(file_name):
         bullet_data_1 = []
         # Length 14 (1-7 - pres seat number) (1-7 - shot seat number)
         bullet_data_2 = []
+        # Length 12 (1 - number of cards played so far, 0 if not a topdeck, 2 - result of topdeck) * 6 (possible topdecks allowed)
+        topdecks = []
+
         # Was hitler elected
         # hitler_elected = false
 
@@ -37,24 +44,34 @@ def populate_inputs(file_name):
             roles.append(1 if (data["players"][seat]["role"] == "fascist" or data["players"][seat]["role"] == "hitler") else 0)
 
         # Pick one of the liberal
-        randomLib = random.randint(0, 4)
-        libCount = 0
-        confirmedSeat = 0
+        random_lib = (game_number + lib_inc) % 4 
+        lib_count = 0
+        confirmed_seat = 0
         for seat in range(0, 7):
             if data["players"][seat]["role"] == "liberal":
-                if libCount == randomLib:
-                    confirmedSeat = seat
-                libCount = libCount + 1
+                if lib_count == random_lib:
+                    confirmed_seat = seat
+                lib_count = lib_count + 1
 
         # Append the the my_role array to one-hot encode which seat the AI is playing
         for seat in range(0, 7):
-            my_role.append(seat == confirmedSeat)
+            my_role.append(seat == confirmed_seat)
                 
-    
-        # For each government
+        gov_count = 0
+
+        # For each government 
         for gov in range(0, len(data["logs"])):
+
+            # If the government was a topdeck
+            if len(data["logs"][gov]) == 4 and ("enactedPolicy" in data["logs"][gov]):
+                topdecks.append(1 if data["logs"][gov]["enactedPolicy"] == "fascist" else 0)
+                if data["logs"][gov]["enactedPolicy"] == "fascist":
+                    fas_card_count += 1
+                else:
+                    lib_card_count += 1
+
             # If the government was played
-            if len(data["logs"][gov]) >= 8:
+            if len(data["logs"][gov]) >= 7:
                 # President seat number
                 for pres in range(0, 7):
                     gov_data.append(1 if data["logs"][gov]["presidentId"] == pres else 0)
@@ -82,16 +99,27 @@ def populate_inputs(file_name):
                     gov_data.append(2)
                 
                 # No policy enacted?
-                gov_data.append(not "enactedPolicy" in data["logs"][gov])
+                gov_data.append(not "enactedPolicy" in data["logs"][gov])                
 
                 # Red enacted?, blue enacted?
                 if "enactedPolicy" in data["logs"][gov]:
+                    gov_count += 1
                     gov_data.append(0 if data["logs"][gov]["enactedPolicy"] == "fascist" else 1)
                     gov_data.append(1 if data["logs"][gov]["enactedPolicy"] == "fascist" else 0)
+                    # Number of lib cards on board after this gov
+                    if data["logs"][gov]["enactedPolicy"] == "fascist":
+                        fas_card_count += 1
+                    else:
+                        lib_card_count += 1
+                    gov_data.append(lib_card_count)
+                    # Number of fas cards on board after this gov
+                    gov_data.append(fas_card_count)
                 else:
-                    gov_data.append(0);
-                    gov_data.append(0);
-                
+                    gov_data.append(0)
+                    gov_data.append(0)
+                    gov_data.append(lib_card_count)
+                    gov_data.append(fas_card_count)
+
                 # If investigation
                 if("investigationId" in data["logs"][gov]):
                     for pres in range(0, 7):
@@ -123,7 +151,7 @@ def populate_inputs(file_name):
                         for shot in range(0, 7):
                             bullet_data_2.append(1 if data["logs"][gov]["execution"] == shot else 0)
 
-        for i in range(len(gov_data), 228):
+        for i in range(len(gov_data), 252):
             gov_data.append(0)
         for i in range(len(investigation_data), 15):
             investigation_data.append(0)
@@ -133,6 +161,11 @@ def populate_inputs(file_name):
             bullet_data_1.append(0)
         for i in range(len(bullet_data_2), 14):
             bullet_data_2.append(0)
+        for i in range(len(topdecks), 12):
+            topdecks.append(0)
 
-        game_data = gov_data + investigation_data + special_election_data + bullet_data_1 + bullet_data_2 + my_role
+        if gov_count < 4:
+            return None, None
+
+        game_data = gov_data + investigation_data + special_election_data + bullet_data_1 + bullet_data_2 + topdecks + my_role
         return game_data, roles
