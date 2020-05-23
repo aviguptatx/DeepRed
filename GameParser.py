@@ -1,7 +1,7 @@
 import json
 import random
 
-def populate_inputs(file_name, game_number, lib_inc):
+def populate_inputs(file_name, game_number, lib_inc, gov_threshold):
     with open(file_name) as f:
         data = json.load(f)
 
@@ -23,7 +23,7 @@ def populate_inputs(file_name, game_number, lib_inc):
         roles = []
         # Length 7 = (1-7 roles)
         my_role = []
-        # Lenth 252 = 21 (1-7 - pres, 8-14 chanc, 15 pres claim, 16 chanc claim, 17 policy not enacted, 18 blue, 19 red, 20 - number of blues on board after gov (0-5), 21 - number of reds on board after gov (0-6)) * 12 (# possible govs, including VZ)
+        # Lenth 312 = 21 (1-7 - pres, 8-14 chanc, 15-18 pres claim, 19-21 chanc claim, 22 policy not enacted, 23 blue, 24 red, 25 - number of blues on board after gov (0-5), 26 - number of reds on board after gov (0-6)) * 12 (# possible govs, including VZ)
         gov_data = []
         # Length 15 (1-7 - pres seat number) (8-14 - chancellor seat number) (15 - result)
         investigation_data = []
@@ -80,23 +80,36 @@ def populate_inputs(file_name, game_number, lib_inc):
                 for chan in range(0, 7):
                     gov_data.append(1 if data["logs"][gov]["chancellorId"] == chan else 0)
 
-                # President number of reds claimed
-                if "presidentClaim" in data["logs"][gov]: 
-                    gov_data.append(data["logs"][gov]["presidentClaim"]["reds"])
-                elif "chancellorClaim" in data["logs"][gov]:
-                    gov_data.append(data["logs"][gov]["chancellorClaim"]["reds"] + 1)
-                elif "enactedPolicy" in data["logs"][gov]:
-                    gov_data.append(3 if data["logs"][gov]["enactedPolicy"] == "fascist" else 2)
-                else:
-                    gov_data.append(3)
+                pres_claim = data["logs"][gov]["presidentClaim"]["reds"] if "presidentClaim" in data["logs"][gov] else 0
+                chanc_claim = data["logs"][gov]["chancellorClaim"]["reds"] if "chancellorClaim" in data["logs"][gov] else 0
 
+                # President number of reds claimed
+                if "presidentClaim" in data["logs"][gov]:
+                    gov_data.append(1 if pres_claim == 0 else 0)
+                    gov_data.append(1 if pres_claim == 1 else 0)
+                    gov_data.append(1 if pres_claim == 2 else 0)
+                    gov_data.append(1 if pres_claim == 3 else 0)
+                elif "chancellorClaim" in data["logs"][gov]:
+                    gov_data.append(0)
+                    gov_data.append(1 if chanc_claim == 0 else 0)
+                    gov_data.append(1 if chanc_claim == 1 else 0)
+                    gov_data.append(1 if chanc_claim == 2 else 0)
+                elif "enactedPolicy" in data["logs"][gov]:
+                    return None, None
+                else:
+                    return None, None
+                    
                 # Chancellor number of reds claimed
                 if "chancellorClaim" in data["logs"][gov]:
-                    gov_data.append(data["logs"][gov]["chancellorClaim"]["reds"])
+                    gov_data.append(1 if chanc_claim == 0 else 0)
+                    gov_data.append(1 if chanc_claim == 1 else 0)
+                    gov_data.append(1 if chanc_claim == 2 else 0)
                 elif "enactedPolicy" in data["logs"][gov]:
-                    gov_data.append(2 if data["logs"][gov]["enactedPolicy"] == "fascist" else 1)
+                    gov_data.append(0)
+                    gov_data.append(0 if data["logs"][gov]["enactedPolicy"] == "fascist" else 1)
+                    gov_data.append(1 if data["logs"][gov]["enactedPolicy"] == "fascist" else 0)
                 else:
-                    gov_data.append(2)
+                    return None, None
                 
                 # No policy enacted?
                 gov_data.append(not "enactedPolicy" in data["logs"][gov])                
@@ -151,7 +164,7 @@ def populate_inputs(file_name, game_number, lib_inc):
                         for shot in range(0, 7):
                             bullet_data_2.append(1 if data["logs"][gov]["execution"] == shot else 0)
 
-        for i in range(len(gov_data), 252):
+        for i in range(len(gov_data), 312):
             gov_data.append(0)
         for i in range(len(investigation_data), 15):
             investigation_data.append(0)
@@ -164,8 +177,9 @@ def populate_inputs(file_name, game_number, lib_inc):
         for i in range(len(topdecks), 12):
             topdecks.append(0)
 
-        if gov_count < 4:
+        if gov_count < gov_threshold:
             return None, None
 
         game_data = gov_data + investigation_data + special_election_data + bullet_data_1 + bullet_data_2 + topdecks + my_role
+
         return game_data, roles

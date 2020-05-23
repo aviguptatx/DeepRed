@@ -2,6 +2,7 @@ import numpy as np
 import pickle
 import math
 import GameParser
+import time
 from matplotlib import pyplot as plt
 
 # Initializes a neural network with 2 layers of sizes input_dim and output_dim
@@ -14,9 +15,9 @@ def init_network(neural_net):
 
     for layer in range(0, num_layers):
         # Uses He-et-al Initialization
-        temp_w = np.random.randn(neural_net[layer]["k"], neural_net[layer]["j"]) * np.sqrt(2 / neural_net[layer]["j"]) 
+        temp_w = np.random.randn(neural_net[layer]["k"], neural_net[layer]["j"]) * np.sqrt(1 / neural_net[layer]["j"]) 
         params_w.append(temp_w)
-        temp_b = np.random.randn(neural_net[layer]["k"]) * np.sqrt(2 / neural_net[layer]["j"]) 
+        temp_b = np.random.randn(neural_net[layer]["k"]) * np.sqrt(1 / neural_net[layer]["j"]) 
         params_b.append(temp_b)
 
     return params_w, params_b
@@ -93,12 +94,12 @@ test_Y = []
 
 game_nums = []
 
-for game_number in range(1, 100):
+for game_number in range(1, 20000):
     file_name = "games\\" + str(game_number) + ".json"
     print(file_name)
     # Try all 4 of the lib seats
-    for lib_seat in range (0, 1):
-        tempX, tempY = GameParser.populate_inputs(file_name, game_number, lib_seat)
+    for lib_seat in range (0, 4):
+        tempX, tempY = GameParser.populate_inputs(file_name, game_number, lib_seat, 4)
         # Only add the game data if the game is valid
         if (tempX is not None):
             game_nums.append(game_number)
@@ -107,12 +108,12 @@ for game_number in range(1, 100):
 
 game_numbers = []
 
-for game_number in range(100, 200):
+for game_number in range(20000, 25000):
     file_name = "games\\" + str(game_number) + ".json"
     print(file_name)
     # Try all 4 of the lib seats
     for lib_seat in range (0, 1):
-        tempX, tempY = GameParser.populate_inputs(file_name, game_number, lib_seat)
+        tempX, tempY = GameParser.populate_inputs(file_name, game_number, lib_seat, 4)
         # Only add the game data if the game is valid
         if (tempX is not None):
             game_numbers.append(game_number)
@@ -140,8 +141,7 @@ test_Y = np.array(test_Y)
 #     # Y[i] = X[i][0] and X[i][1]
 #         Y[i][j] = (X[i][0] and X[i][1]) or not(X[i][0] or X[i][1])
 
-neural_net = [{"j": 328, "k": 26},
-              {"j": 26, "k": 7}]
+neural_net = [{"j": 388, "k": 7}]
 
 # Initialize weights and biases
 params_w, params_b = init_network(neural_net)
@@ -157,8 +157,8 @@ params_w, params_b = init_network(neural_net)
 errors = []
 test_errors = []
 seat_errors = []
-num_epochs = 10
-learning_rate = .5
+num_epochs = 6500
+learning_rate = .2
 lambda_ = 0
 num_examples = np.shape(X)[0]
 
@@ -177,6 +177,7 @@ for epoch in range(0, num_epochs):
 
     # For each example
     for i in range(0, np.shape(X)[0]):
+
         activations = None
         activations = []
         output_Z = None
@@ -229,8 +230,8 @@ for epoch in range(0, num_epochs):
 
             error_next = error_curr
 
+        
         RESULT[i] = output_A
-
     # Divide gradients by number of examples
     grads_w = np.asarray(grads_w)
     grads_w /= np.shape(X)[0]
@@ -301,8 +302,8 @@ print(len(test_X))
 print(test_X[-1])
 
 # Graph Training Error
-plt.title("Training Games: " + str(game_nums[0]) + "-" + str(game_nums[-1]) + " | Testing Games: " + str(game_numbers[0]) + "-" + str(game_numbers[-1]) + " | a = " + str(learning_rate) + " | l = " + str(lambda_))
 plt.subplot(3, 1, 1)
+plt.title("Training Games: " + str(game_nums[0]) + "-" + str(game_nums[-1]) + " | Testing Games: " + str(game_numbers[0]) + "-" + str(game_numbers[-1]) + " | a = " + str(learning_rate) + " | l = " + str(lambda_))
 plt.plot(errors)
 plt.ylabel('Training Error')
 plt.xlabel('Epoch')
@@ -312,7 +313,7 @@ plt.legend(['1', '2','3', '4', '5', '6', '7'])
 plt.subplot(3, 1, 2)
 plt.plot(test_errors)
 plt.ylabel('Test Error')
-plt.xlabel('Epoch')
+plt.xlabel('Epoch (100)')
 plt.legend(['1', '2','3', '4', '5', '6', '7'])
 
 # Graph CV/Test Error
