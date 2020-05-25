@@ -1,9 +1,10 @@
 import json
 import random
 
-def populate_inputs(game_number_start, game_number_end, lib_count):
+def populate_inputs(game_number_start, game_number_end, lib_inc):
     games = []
     results = []
+    test_game_numbers = []
 
     # games[X][Y][Z] = [Game #][Gov #][Node in gov]
     # results[X][Y] = results[Game #][Seat #]
@@ -34,11 +35,10 @@ def populate_inputs(game_number_start, game_number_end, lib_count):
 
             # Roles
             for seat in range(0, 7):
-                roles.append(1 if (data["players"][seat]["role"] ==
-                                   "fascist" or data["players"][seat]["role"] == "hitler") else 0)
+                roles.append(1 if (data["players"][seat]["role"] == "fascist" or data["players"][seat]["role"] == "hitler") else 0)
 
-            # Pick one of the liberal
-            random_lib = (game_number + lib_count) % 4
+            # Pick one of the liberals psuedorandomly (lib_inc is parameterized)
+            random_lib = (game_number + lib_inc) % 4
             lib_count = 0
             confirmed_seat = 0
             for seat in range(0, 7):
@@ -55,7 +55,6 @@ def populate_inputs(game_number_start, game_number_end, lib_count):
             for gov in range(0, len(data["logs"])):
 
                 appending = False
-
                 # Lenth 24 (1-7 - pres, 8-14 chanc, 15-18 pres claim, 19-21 chanc claim, 22 policy not enacted, 23 blue, 24 red)
                 gov_data = []
                 # Length 15 (1-7 - pres seat number) (8-14 - chancellor seat number) (15 - result)
@@ -71,7 +70,6 @@ def populate_inputs(game_number_start, game_number_end, lib_count):
 
                 # If the government was played
                 if len(data["logs"][gov]) >= 7:
-
                     appending = True
 
                     # President seat number
@@ -197,8 +195,7 @@ def populate_inputs(game_number_start, game_number_end, lib_count):
                     bullet_data_2.append(0)
 
                 if appending:
-                    game_data.append(gov_data + investigation_data + special_election_data +
-                                     bullet_data_1 + bullet_data_2 + topdecks + my_role)
+                    game_data.append(gov_data + investigation_data + special_election_data + bullet_data_1 + bullet_data_2 + topdecks + my_role)
 
             for i in range(len(game_data), 12):
                 game_data.append([0] * 91)
@@ -206,5 +203,6 @@ def populate_inputs(game_number_start, game_number_end, lib_count):
             if (game_valid):
                 games.append(game_data)
                 results.append(roles)
+                test_game_numbers.append(game_number)
 
-    return games, results
+    return games, results, test_game_numbers

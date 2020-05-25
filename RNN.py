@@ -7,12 +7,13 @@ import numpy as np
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
 import gc
+import RNNParser
 
 # Garbage collect
 gc.collect()
 
-# Set CUDA device
-cuda = torch.device('cuda')
+# Enables device agnostic tensor creation
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Empty the CUDA cache
 with torch.no_grad():
@@ -20,33 +21,28 @@ with torch.no_grad():
 torch.cuda.empty_cache()
 
 # Recurrent Neural Network
-
-
 class RNN(nn.Module):
     def __init__(self, n_inputs, n_neurons, X_in, Y_in):
         super(RNN, self).__init__()
-        self.rnn = nn.RNNCell(n_inputs, n_neurons)
+        self.rnn = nn.RNN(n_inputs, n_neurons)
         self.n_neurons = n_neurons
-        # initialize last hidden state
-        self.hx = torch.randn(len(X_in), n_neurons,
-                              device=cuda) * np.sqrt(2 / n_inputs)
-        self.Xa = X_in
-        self.Ya = Y_in
-
-    # Forward propogation
+        self.X = X_in
+        self.Y = Y_in
     def forward(self, games):
-        output = []
-        # for each time step
-        for gov_number in range(len(games[0])):
-            self.hx = 3 * \
-                F.softmax(
-                    self.rnn(games[:, gov_number], self.hx).cuda(), dim=1)
-            output.append(self.hx)
-        return output, self.hx
-
+        # Permute the games tensor dimensions in the correct order
+        games_permuted = games.permute(1, 0, 2).to(device)
+        # Initialize the hidden state with all zeroes
+        self.init_hidden()
+        # Calculate values of hidden states
+        states, hidden_states = self.rnn(games_permuted, self.hx)
+        # Run the states through the sigmoid function
+        sigmoid = nn.Sigmoid()
+        states, hidden_states = sigmoid(states), sigmoid(hidden_states)
+        # # Softmax the results
+        # return 3 * F.softmax(torch.as_tensor(states), dim=2), 3 * F.softmax(torch.as_tensor(hidden_states.view(-1, self.n_neurons)), dim=1)
+        return torch.as_tensor(states), torch.as_tensor(hidden_states)
     def init_hidden(self):
-        self.hx = torch.zeros(len(self.Xa), self.n_neurons).cuda()
-
+        self.hx = torch.zeros(1, len(self.X), self.n_neurons).to(device)
 
 # Number of nodes in input layer
 N_INPUT = 91
@@ -55,31 +51,32 @@ N_INPUT = 91
 N_NEURONS = 7
 
 # Training set
-X, Y = populate_inputs(1000, 5000, 1)
+X, Y, _ = RNNParser.populate_inputs(2, 500, 1)
 
 # Testing set (validation)
-test_X, test_Y = populate_inputs(500, 1000, 1)
+test_X, test_Y, test_game_numbers = RNNParser.populate_inputs(500, 1000, 1)
 
 # Convert to tensors
-X = torch.as_tensor(X).cuda()
-Y = torch.as_tensor(Y).cuda()
-test_X = torch.as_tensor(test_X).cuda()
-test_Y = torch.as_tensor(test_Y).cuda()
+X = torch.as_tensor(X, dtype=torch.float32).to(device)
+Y = torch.as_tensor(Y).to(device)
+test_X = torch.as_tensor(test_X, dtype=torch.float32).to(device)
+test_Y = torch.as_tensor(test_Y).to(device)
 
-# Number of epochs
+# Hyperparameters
 N_EPOCHS = 1000
+LEARNING_RATE = .03
 
 # Training model
-train_model = RNN(N_INPUT, N_NEURONS, X, Y).cuda()
-train_model.cuda()
+train_model = RNN(N_INPUT, N_NEURONS, X, Y).to(device)
+train_model.to(device)
 
 # Testing model
-test_model = RNN(N_INPUT, N_NEURONS, test_X, test_Y).cuda()
-test_model.cuda()
+test_model = RNN(N_INPUT, N_NEURONS, test_X, test_Y).to(device)
+test_model.to(device)
 
-# Set the loss function to cross entropy and use optimizer
-criterion = nn.CrossEntropyLoss().cuda()
-optimizer = optim.Adam(train_model.parameters(), lr=.03)
+# Set the loss function to binary cross entropy and use optimizer
+criterion = nn.BCELoss().to(device)
+optimizer = optim.Adam(train_model.parameters(), lr=LEARNING_RATE)
 
 # Contains the errors
 train_seat_errors = []
@@ -89,9 +86,8 @@ test_seat_errors = []
 for epoch in range(N_EPOCHS):
 
     print("Epoch " + str(epoch))
-    train_running_loss = 0.0
-    train_model.train().cuda()
-    test_model.train().cuda()
+    train_model.train()
+    test_model.train()
 
     # zero the parameter gradients
     optimizer.zero_grad()
@@ -101,50 +97,37 @@ for epoch in range(N_EPOCHS):
     test_model.init_hidden()
 
     # Run the model, collect states (store them)
-    all_states, last_states = train_model(
-        torch.as_tensor(X, dtype=torch.float32).cuda())
-    last_states = last_states.cuda()
-
-    # Separates probabilities of liberal and fascist
-    output = torch.zeros(len(X), 2, 7).cuda()
-    output[:, 0, :] = 1 - last_states
-    output[:, 1, :] = last_states
+    all_states, last_states = train_model(X)
 
     # Calculate loss and backpropogate
-    loss = criterion(output, torch.as_tensor(Y).cuda())
-    loss.backward(retain_graph=True)
+    loss = criterion(last_states.float(), Y.float())
+    loss.backward()
+
+    # loss.backward(retain_graph=True)
     optimizer.step()
 
     # Evaluate the training set errors and store them
-    train_seat_error = torch.sum(
-        torch.abs(torch.as_tensor(Y).cuda() - last_states)).cuda() / len(Y)
+    train_seat_error = torch.sum(torch.abs(Y - last_states)) / len(Y)
     train_seat_errors.append(train_seat_error)
 
-    train_model.eval().cuda()
+    train_model.eval()
 
     # Transfer weights of training model to the testing model for testing
-    test_model.rnn.weight_hh = train_model.rnn.weight_hh
-    test_model.rnn.weight_ih = train_model.rnn.weight_ih
+    torch.save(train_model.state_dict(), 'parameters')
+    test_model.load_state_dict(torch.load('parameters'))
 
     # Run the testing model on the test data set and store predictions
-    _, prediction = test_model.forward(
-        torch.as_tensor(test_X, dtype=torch.float32).cuda())
-    prediction = prediction.cuda()
+    _, prediction = test_model(test_X)
 
     # Store the errors for the testing set
-    test_seat_error = torch.sum(torch.abs(torch.as_tensor(
-        test_Y).cuda() - prediction)).cuda() / len(test_Y)
+    test_seat_error = torch.sum(torch.abs(test_Y - prediction)) / len(test_Y)
     test_seat_errors.append(test_seat_error)
 
-    test_model.eval().cuda()
+    test_model.eval()
 
-    # Reset in case this is causing a Google Colab memory issue
-    all_states = None
-    last_states = None
-    output = None
-    prediction = None
-
-    # train_running_loss += loss.detach().item()
+for game_index in range(len(test_X)):
+    print("Game #" + str(test_game_numbers[game_index]))
+    print("Pred: " + str(prediction[0][game_index]) + "\nReal: " + str(test_Y[game_index]))
 
 # Graph Train Error
 plt.subplot(2, 1, 1)

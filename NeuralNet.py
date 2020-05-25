@@ -5,11 +5,11 @@ import GameParser
 import time
 from matplotlib import pyplot as plt
 
-# Initializes a neural network with 2 layers of sizes input_dim and output_dim
 def init_network(neural_net):
     np.random.seed(70)
     num_layers = len(neural_net)
 
+    # Weights and biases
     params_w = []
     params_b = []
 
@@ -44,12 +44,10 @@ def error_function(params_w, params_b, test_inputs, test_outputs):
             activations0[forward_example] = output_A
             Z.append(output_Z)
 
-    # activations0 = softmax(activations0)
-
     error = 0
     for example in range(0, np.shape(test_inputs)[0]):
-        # error += -Y[example] * np.log(activations0[example]) - (1 - Y[example]) * np.log(1 - activations0[example])
         error += np.abs(test_outputs[example] - activations0[example])
+
     return error / np.shape(test_inputs)[0]
 
 def seat_error_function(params_w, params_b, test_inputs, test_outputs):
@@ -63,9 +61,6 @@ def seat_error_function(params_w, params_b, test_inputs, test_outputs):
             output_A, output_Z = forward_prop_layer(activations0[forward_example], params_w[layer], params_b[layer])
             activations0[forward_example] = output_A
             Z.append(output_Z)
-
-    # activations0 = softmax(activations0)
-
     seat_error = 0
     for a in range(len(activations0)):
         seat_error += np.sum(np.abs(activations0[a] - test_outputs[a]))
@@ -86,15 +81,19 @@ def gradient_descent(grads_w, grads_b, alpha):
     for layer in range(0, len(neural_net) - 1):
         weight_sum += np.sum(params_w[layer])
     return params_w - alpha * grads_w - ((lambda_ / np.shape(X)[0]) * weight_sum), params_b - alpha * grads_b
-    
+
+# Training set
 X = []
 Y = []
+
+# Testing set
 test_X = []
 test_Y = []
 
 game_nums = []
 
-for game_number in range(1, 20000):
+# Import games for training set
+for game_number in range(1, 100):
     file_name = "games\\" + str(game_number) + ".json"
     print(file_name)
     # Try all 4 of the lib seats
@@ -108,7 +107,8 @@ for game_number in range(1, 20000):
 
 game_numbers = []
 
-for game_number in range(20000, 25000):
+# Import games for testing set
+for game_number in range(100, 200):
     file_name = "games\\" + str(game_number) + ".json"
     print(file_name)
     # Try all 4 of the lib seats
@@ -120,27 +120,14 @@ for game_number in range(20000, 25000):
             test_X.append(tempX)
             test_Y.append(tempY)
 
-# Convert X and Y to numpy arrays
+# Convert to numpy arrays
 X = np.array(X)
 Y = np.array(Y)
 
 test_X = np.array(test_X)
 test_Y = np.array(test_Y)
 
-# # Generates all combinations of 1s and 0s for input data
-# for i in range(0, np.shape(X)[0]):
-#     num = i
-#     for j in range(0, np.shape(X)[1]):
-#         rem = num // (2**(np.shape(X)[1]-1-j))
-#         X[i][j] = rem
-#         num -= rem * (2**(np.shape(X)[1]-1-j))
-
-# # Generates the correct outputs for the inputs X
-# for i in range(0, np.shape(Y)[0]):
-#     for j in range(0, 2):
-#     # Y[i] = X[i][0] and X[i][1]
-#         Y[i][j] = (X[i][0] and X[i][1]) or not(X[i][0] or X[i][1])
-
+# Define NN architecture
 neural_net = [{"j": 388, "k": 7}]
 
 # Initialize weights and biases
@@ -154,16 +141,22 @@ params_w, params_b = init_network(neural_net)
 #     params_b = pickle.load(g)
 #     print(params_b)
 
+
 errors = []
 test_errors = []
 seat_errors = []
-num_epochs = 6500
-learning_rate = .2
-lambda_ = 0
 num_examples = np.shape(X)[0]
 
+# Hyperparameters
+num_epochs = 1000
+learning_rate = .2
+lambda_ = 0
+
+# Training loop
 for epoch in range(0, num_epochs):
+
     print(epoch)
+
     # Initialize gradients at 0
     grads_w = []
     grads_b = []
@@ -230,8 +223,8 @@ for epoch in range(0, num_epochs):
 
             error_next = error_curr
 
-        
         RESULT[i] = output_A
+
     # Divide gradients by number of examples
     grads_w = np.asarray(grads_w)
     grads_w /= np.shape(X)[0]
@@ -252,7 +245,6 @@ with open('params_w', 'wb') as f:
 with open('params_b', 'wb') as g:
   pickle.dump(params_b, g)
 
-
 # Print output activations and the correct answers
 activations1 = [None] * np.shape(test_X)[0]
 for forward_example in range(0, np.shape(test_X)[0]):
@@ -265,14 +257,11 @@ for forward_example in range(0, np.shape(test_X)[0]):
         activations1[forward_example] = output_A
         Z.append(output_Z)
 
-    # activations1 = softmax(activations1)
-
-
 temp = activations1
 for o in range(len(activations1)):
     for q in range(0, 7):
-        # temp[o][q] = 1 if activations1[o][q] > .5 else 0
         temp[o][q] = "%.4f" % activations1[o][q]
+
 for p in range(len(test_X)):
     print("Test# " + str(p) + " | " + "Game number: " + str(game_numbers[p]))
     print(test_X[p][-7:])
@@ -296,11 +285,6 @@ for a in range(len(activations1)):
     seat_error += np.sum(np.abs(activations1[a] - test_Y[a]))
 print("Seat Error: " + str(seat_error/len(test_X)))
 
-# for p in range(len(X)):
-#     print("Test# " + str(p) + " | " + "Game number: " + str(game_nums[p]))
-print(len(test_X))
-print(test_X[-1])
-
 # Graph Training Error
 plt.subplot(3, 1, 1)
 plt.title("Training Games: " + str(game_nums[0]) + "-" + str(game_nums[-1]) + " | Testing Games: " + str(game_numbers[0]) + "-" + str(game_numbers[-1]) + " | a = " + str(learning_rate) + " | l = " + str(lambda_))
@@ -309,14 +293,7 @@ plt.ylabel('Training Error')
 plt.xlabel('Epoch')
 plt.legend(['1', '2','3', '4', '5', '6', '7'])
 
-# Graph CV/Test Error
-plt.subplot(3, 1, 2)
-plt.plot(test_errors)
-plt.ylabel('Test Error')
-plt.xlabel('Epoch (100)')
-plt.legend(['1', '2','3', '4', '5', '6', '7'])
-
-# Graph CV/Test Error
+# Graph CV/Test Seat Error
 plt.subplot(3, 1, 3)
 plt.plot(seat_errors)
 plt.ylabel('Seat Error')
