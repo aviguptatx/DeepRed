@@ -8,6 +8,10 @@ from torch.autograd import Variable
 import matplotlib.pyplot as plt
 import gc
 import RNNParser
+import copy
+import sys
+
+np.set_printoptions(threshold=sys.maxsize)
 
 # Garbage collect
 gc.collect()
@@ -51,10 +55,10 @@ N_INPUT = 91
 N_NEURONS = 7
 
 # Training set
-X, Y, _ = RNNParser.populate_inputs(2, 500, 1)
+X, Y, _ = RNNParser.populate_inputs(2, 5000, 1)
 
 # Testing set (validation)
-test_X, test_Y, test_game_numbers = RNNParser.populate_inputs(500, 1000, 1)
+test_X, test_Y, test_game_numbers = RNNParser.populate_inputs(5000, 10000, 1)
 
 # Convert to tensors
 X = torch.as_tensor(X, dtype=torch.float32).to(device)
@@ -63,8 +67,8 @@ test_X = torch.as_tensor(test_X, dtype=torch.float32).to(device)
 test_Y = torch.as_tensor(test_Y).to(device)
 
 # Hyperparameters
-N_EPOCHS = 1000
-LEARNING_RATE = .03
+N_EPOCHS = 10
+LEARNING_RATE = .05
 
 # Training model
 train_model = RNN(N_INPUT, N_NEURONS, X, Y).to(device)
@@ -101,15 +105,14 @@ for epoch in range(N_EPOCHS):
 
     # Calculate loss and backpropogate
     loss = criterion(last_states.float(), Y.float())
-    loss.backward()
 
-    # loss.backward(retain_graph=True)
+    loss.backward()
     optimizer.step()
 
     # Evaluate the training set errors and store them
     train_seat_error = torch.sum(torch.abs(Y - last_states)) / len(Y)
-    train_seat_errors.append(train_seat_error)
-
+    train_seat_errors.append(train_seat_error.detach().item())
+    
     train_model.eval()
 
     # Transfer weights of training model to the testing model for testing
@@ -121,10 +124,11 @@ for epoch in range(N_EPOCHS):
 
     # Store the errors for the testing set
     test_seat_error = torch.sum(torch.abs(test_Y - prediction)) / len(test_Y)
-    test_seat_errors.append(test_seat_error)
+    test_seat_errors.append(test_seat_error.detach().item())
 
-    test_model.eval()
-
+    test_model.eval() 
+        
+# Print training set results
 for game_index in range(len(test_X)):
     print("Game #" + str(test_game_numbers[game_index]))
     print("Pred: " + str(prediction[0][game_index]) + "\nReal: " + str(test_Y[game_index]))
@@ -140,9 +144,3 @@ plt.title("CV Error")
 plt.plot(test_seat_errors)
 
 plt.show()
-
-# Reset in case this is causing a Google Colab memory issue
-X = None
-Y = None
-test_X = None
-test_Y = None

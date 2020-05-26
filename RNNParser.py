@@ -38,7 +38,8 @@ def populate_inputs(game_number_start, game_number_end, lib_inc):
                 roles.append(1 if (data["players"][seat]["role"] == "fascist" or data["players"][seat]["role"] == "hitler") else 0)
 
             # Pick one of the liberals psuedorandomly (lib_inc is parameterized)
-            random_lib = (game_number + lib_inc) % 4
+            # random_lib = (game_number + lib_inc) % 4
+            random_lib = 0
             lib_count = 0
             confirmed_seat = 0
             for seat in range(0, 7):
