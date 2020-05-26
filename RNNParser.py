@@ -38,8 +38,7 @@ def populate_inputs(game_number_start, game_number_end, lib_inc):
                 roles.append(1 if (data["players"][seat]["role"] == "fascist" or data["players"][seat]["role"] == "hitler") else 0)
 
             # Pick one of the liberals psuedorandomly (lib_inc is parameterized)
-            # random_lib = (game_number + lib_inc) % 4
-            random_lib = 0
+            random_lib = (game_number + lib_inc) % 4
             lib_count = 0
             confirmed_seat = 0
             for seat in range(0, 7):
@@ -51,6 +50,9 @@ def populate_inputs(game_number_start, game_number_end, lib_inc):
             # Append the the my_role array to one-hot encode which seat the AI is playing
             for seat in range(0, 7):
                 my_role.append(1 if seat == confirmed_seat else 0)
+
+            if len(data["logs"]) <= 4:
+                game_valid = False
 
             # For each government
             for gov in range(0, len(data["logs"])):
@@ -75,13 +77,11 @@ def populate_inputs(game_number_start, game_number_end, lib_inc):
 
                     # President seat number
                     for pres in range(0, 7):
-                        gov_data.append(
-                            1 if data["logs"][gov]["presidentId"] == pres else 0)
+                        gov_data.append(1 if data["logs"][gov]["presidentId"] == pres else 0)
 
                     # Chancellor seat number
                     for chan in range(0, 7):
-                        gov_data.append(
-                            1 if data["logs"][gov]["chancellorId"] == chan else 0)
+                        gov_data.append(1 if data["logs"][gov]["chancellorId"] == chan else 0)
 
                     pres_claim = data["logs"][gov]["presidentClaim"]["reds"] if "presidentClaim" in data["logs"][gov] else 0
                     chanc_claim = data["logs"][gov]["chancellorClaim"]["reds"] if "chancellorClaim" in data["logs"][gov] else 0
@@ -117,8 +117,7 @@ def populate_inputs(game_number_start, game_number_end, lib_inc):
                         game_valid = False
 
                     # No policy enacted?
-                    gov_data.append(
-                        0 if "enactedPolicy" in data["logs"][gov] else 1)
+                    gov_data.append(0 if "enactedPolicy" in data["logs"][gov] else 1)
 
                     # Red enacted?, blue enacted?
                     if "enactedPolicy" in data["logs"][gov]:
