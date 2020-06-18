@@ -1,208 +1,270 @@
 import json
-import random
+import re
 
-def populate_inputs(game_number_start, game_number_end, lib_inc):
-    games = []
-    results = []
-    test_game_numbers = []
+def load_game(file_name):
 
-    # games[X][Y][Z] = [Game #][Gov #][Node in gov]
-    # results[X][Y] = results[Game #][Seat #]
+    game_data = []
+    game_outed = [0] * 7
+    game_hitler = [0] * 7
+    game_cnh = [0] * 7
+    confirmed = [0] * 7
 
-    for game_number in range(game_number_start, game_number_end):
-        game_valid = True
-        game_data = []
+    lib_cards_played = 0
+    fas_cards_played = 0
 
-        # Length 7 = (1-7 roles)
-        roles = []
-        # Length 7: 1 denotes the lib seat the AI is
-        my_role = []
+    with open(file_name) as file_in:
+        data = json.load(file_in)
 
-        file_name = "games/" + str(game_number) + ".json"
+        # Encode network's seat
+        for seat in range(0, 7):
+            if data["players"][seat]["role"] == "liberal":
+                confirmed[seat] = 1
+                confirmed_seat = seat
 
-        with open(file_name) as f:
-            data = json.load(f)
+        # Length 8 (1-7 - investigated seat number) (8 - result)
+        investigation_data = [0] * 8
+        # Length 7 (1-7 - chosen seat number)
+        special_election_data = [0] * 7
+        # Length 7 (1-7 - shot seat number)
+        bullet_data_1 = [0] * 7
+        # Length 7 (1-7 - shot seat number)
+        bullet_data_2 = [0] * 7
 
-            # Check not custom
-            if data["customGameSettings"]["enabled"]:
-                continue
-            # Check if the game is 7 players
-            if len(data["players"]) != 7:
-                continue
-            # Check not rebalanced 7p
-            if data["gameSetting"]["rebalance7p"]:
-                continue
+        # For each government
+        for gov in range(0, len(data["logs"])):
 
-            # Roles
-            for seat in range(0, 7):
-                roles.append(1 if (data["players"][seat]["role"] == "fascist" or data["players"][seat]["role"] == "hitler") else 0)
+            # If a veto forces a td
+            veto_and_td = False
+            # Lenth 31 (1-7 - pres, 8-14 chanc, 15-18 pres claim, 19-21 chanc claim, 22 veto, 23 blue, 24 red, 25-31 vote data)
+            gov_data = []
+            topdeck = []
 
-            # Pick one of the liberals psuedorandomly (lib_inc is parameterized)
-            random_lib = (game_number + lib_inc) % 4
-            lib_count = 0
-            confirmed_seat = 0
-            for seat in range(0, 7):
-                if data["players"][seat]["role"] == "liberal":
-                    if lib_count == random_lib:
-                        confirmed_seat = seat
-                    lib_count = lib_count + 1
+            # If the government was played
+            if len(data["logs"][gov]) >= 5:
 
-            # Append the the my_role array to one-hot encode which seat the AI is playing
-            for seat in range(0, 7):
-                my_role.append(1 if seat == confirmed_seat else 0)
+                # President seat number
+                for pres in range(0, 7):
+                    gov_data.append(1 if data["logs"][gov]["presidentId"] == pres else 0)
 
-            if len(data["logs"]) <= 4:
-                game_valid = False
+                # Chancellor seat number
+                for chan in range(0, 7):
+                    gov_data.append(1 if data["logs"][gov]["chancellorId"] == chan else 0)
 
-            # For each government
-            for gov in range(0, len(data["logs"])):
+                pres_claim = data["logs"][gov]["presidentClaim"]["reds"]
+                chanc_claim = data["logs"][gov]["chancellorClaim"]["reds"]
 
-                appending = False
-                # Lenth 24 (1-7 - pres, 8-14 chanc, 15-18 pres claim, 19-21 chanc claim, 22 policy not enacted, 23 blue, 24 red)
-                gov_data = []
-                # Length 15 (1-7 - pres seat number) (8-14 - chancellor seat number) (15 - result)
-                investigation_data = []
-                # Length 14 (1-7 - pres seat number) (1-7 - chancellor seat number)
-                special_election_data = []
-                # Length 14 (1-7 - pres seat number) (1-7 - shot seat number)
-                bullet_data_1 = []
-                # Length 14 (1-7 - pres seat number) (1-7 - shot seat number)
-                bullet_data_2 = []
-                # Length 3 - (1 - No topdeck, 2 - Topdeck blue, 3 - Topdeck red)
-                topdecks = []
+                # President number of reds claimed
+                if "presidentClaim" in data["logs"][gov]:
+                    gov_data.append(1 if pres_claim == 0 else 0)
+                    gov_data.append(1 if pres_claim == 1 else 0)
+                    gov_data.append(1 if pres_claim == 2 else 0)
+                    gov_data.append(1 if pres_claim == 3 else 0)
 
-                # If the government was played
-                if len(data["logs"][gov]) >= 7:
-                    appending = True
+                # Chancellor number of reds claimed
+                if "chancellorClaim" in data["logs"][gov]:
+                    gov_data.append(1 if chanc_claim == 0 else 0)
+                    gov_data.append(1 if chanc_claim == 1 else 0)
+                    gov_data.append(1 if chanc_claim == 2 else 0)
 
-                    # President seat number
-                    for pres in range(0, 7):
-                        gov_data.append(1 if data["logs"][gov]["presidentId"] == pres else 0)
+                # Encode card outed
+                if (confirmed_seat == data["logs"][gov]["presidentId"] or confirmed_seat == data["logs"][gov]["chancellorId"]) and (pres_claim - chanc_claim != 1 and pres_claim != 0) and "enactedPolicy" in data["logs"][gov] and data["logs"][gov]["enactedPolicy"] == "fascist":
+                    game_outed[data["logs"][gov]["chancellorId" if confirmed_seat == data["logs"][gov]["presidentId"] else "presidentId"]] = 1
+                    
+                # Veto
+                gov_data.append(1 if ("presidentVeto" in data["logs"][gov] and "chancellorVeto" in data["logs"][gov] and data["logs"][gov]["presidentVeto"] and data["logs"][gov]["chancellorVeto"]) else 0)
 
-                    # Chancellor seat number
-                    for chan in range(0, 7):
-                        gov_data.append(1 if data["logs"][gov]["chancellorId"] == chan else 0)
-
-                    pres_claim = data["logs"][gov]["presidentClaim"]["reds"] if "presidentClaim" in data["logs"][gov] else 0
-                    chanc_claim = data["logs"][gov]["chancellorClaim"]["reds"] if "chancellorClaim" in data["logs"][gov] else 0
-
-                    # President number of reds claimed
-                    if "presidentClaim" in data["logs"][gov]:
-                        gov_data.append(1 if pres_claim == 0 else 0)
-                        gov_data.append(1 if pres_claim == 1 else 0)
-                        gov_data.append(1 if pres_claim == 2 else 0)
-                        gov_data.append(1 if pres_claim == 3 else 0)
-                    elif "chancellorClaim" in data["logs"][gov]:
-                        gov_data.append(0)
-                        gov_data.append(1 if chanc_claim == 0 else 0)
-                        gov_data.append(1 if chanc_claim == 1 else 0)
-                        gov_data.append(1 if chanc_claim == 2 else 0)
-                    elif "enactedPolicy" in data["logs"][gov]:
-                        game_valid = False
-                    else:
-                        game_valid = False
-
-                    # Chancellor number of reds claimed
-                    if "chancellorClaim" in data["logs"][gov]:
-                        gov_data.append(1 if chanc_claim == 0 else 0)
-                        gov_data.append(1 if chanc_claim == 1 else 0)
-                        gov_data.append(1 if chanc_claim == 2 else 0)
-                    elif "enactedPolicy" in data["logs"][gov]:
-                        gov_data.append(0)
-                        gov_data.append(
-                            0 if data["logs"][gov]["enactedPolicy"] == "fascist" else 1)
-                        gov_data.append(
-                            1 if data["logs"][gov]["enactedPolicy"] == "fascist" else 0)
-                    else:
-                        game_valid = False
-
-                    # No policy enacted?
-                    gov_data.append(0 if "enactedPolicy" in data["logs"][gov] else 1)
-
-                    # Red enacted?, blue enacted?
-                    if "enactedPolicy" in data["logs"][gov]:
-                        gov_data.append(
-                            0 if data["logs"][gov]["enactedPolicy"] == "fascist" else 1)
-                        gov_data.append(
-                            1 if data["logs"][gov]["enactedPolicy"] == "fascist" else 0)
-                    else:
-                        gov_data.append(0)
-                        gov_data.append(0)
-
-                    # If investigation
-                    if "investigationId" in data["logs"][gov]:
-                        for pres in range(0, 7):
-                            investigation_data.append(
-                                1 if data["logs"][gov]["presidentId"] == pres else 0)
-                        for chan in range(0, 7):
-                            investigation_data.append(
-                                1 if data["logs"][gov]["investigationId"] == chan else 0)
-                        if not "investigationClaim" in data["logs"][gov]:
-                            game_valid = False
-                        else:
-                            investigation_data.append(
-                                1 if data["logs"][gov]["investigationClaim"] == "fascist" else 0)
-
-                    # If Special Election
-                    if "specialElection" in data["logs"][gov]:
-                        for pres in range(0, 7):
-                            special_election_data.append(
-                                1 if data["logs"][gov]["presidentId"] == pres else 0)
-                        for chan in range(0, 7):
-                            special_election_data.append(
-                                1 if data["logs"][gov]["specialElection"] == chan else 0)
-                    # If Bullet
-                    if "execution" in data["logs"][gov]:
-                        # If first bullet
-                        if (len(bullet_data_1) < 1):
-                            for pres in range(0, 7):
-                                bullet_data_1.append(
-                                    1 if data["logs"][gov]["presidentId"] == pres else 0)
-                            for shot in range(0, 7):
-                                bullet_data_1.append(
-                                    1 if data["logs"][gov]["execution"] == shot else 0)
-                        # If second bullet
-                        else:
-                            for pres in range(0, 7):
-                                bullet_data_2.append(
-                                    1 if data["logs"][gov]["presidentId"] == pres else 0)
-                            for shot in range(0, 7):
-                                bullet_data_2.append(
-                                    1 if data["logs"][gov]["execution"] == shot else 0)
-
-                # If the government was a topdeck
-                if len(data["logs"][gov]) == 4 and ("enactedPolicy" in data["logs"][gov]):
-                    appending = True
-                    topdecks.append(0)
-                    topdecks.append(
-                        0 if data["logs"][gov]["enactedPolicy"] == "fascist" else 1)
-                    topdecks.append(
-                        1 if data["logs"][gov]["enactedPolicy"] == "fascist" else 0)
+                # Enacted policy
+                if "enactedPolicy" in data["logs"][gov]:
+                    gov_data.append(0 if data["logs"][gov]["enactedPolicy"] == "fascist" else 1)
+                    gov_data.append(1 if data["logs"][gov]["enactedPolicy"] == "fascist" else 0)
                 else:
-                    topdecks.append(1)
-                    topdecks.append(0)
-                    topdecks.append(0)
-
-                for i in range(len(gov_data), 24):
                     gov_data.append(0)
-                for i in range(len(investigation_data), 15):
-                    investigation_data.append(0)
-                for i in range(len(special_election_data), 14):
-                    special_election_data.append(0)
-                for i in range(len(bullet_data_1), 14):
-                    bullet_data_1.append(0)
-                for i in range(len(bullet_data_2), 14):
-                    bullet_data_2.append(0)
+                    gov_data.append(0)
 
-                if appending:
-                    game_data.append(gov_data + investigation_data + special_election_data + bullet_data_1 + bullet_data_2 + topdecks + my_role)
+                # Vote data
+                for seat in range(0, 7):
+                    gov_data.append(1 if data["logs"][gov]["votes"][seat] else 0)
+                
+                # If investigation
+                if "investigationId" in data["logs"][gov]:
+                    investigation_data[data["logs"][gov]["investigationId"]] = 1
+                    investigation_data[7] = 1 if data["logs"][gov]["investigationClaim"] == "fascist" else 0
 
-            for i in range(len(game_data), 12):
-                game_data.append([0] * 91)
+                # Encode inv outed
+                if "investigationId" in data["logs"][gov] and (confirmed_seat == data["logs"][gov]["presidentId"] or confirmed_seat == data["logs"][gov]["investigationId"]) and data["logs"][gov]["investigationClaim"] == "fascist":
+                    game_outed[data["logs"][gov]["investigationId" if confirmed_seat == data["logs"][gov]["presidentId"] else "presidentId"]] = 1
 
-            if (game_valid):
-                games.append(game_data)
-                results.append(roles)
-                test_game_numbers.append(game_number)
+                # Encode inv confirmed
+                if "investigationId" in data["logs"][gov] and confirmed_seat == data["logs"][gov]["presidentId"] and data["logs"][gov]["investigationClaim"] == "liberal": 
+                    confirmed[data["logs"][gov]["investigationId"]] = 1
 
-    return games, results, test_game_numbers
+                # Did a veto force a topdeck
+                if "presidentVeto" in data["logs"][gov] and "chancellorVeto" in data["logs"][gov] and data["logs"][gov]["presidentVeto"] and data["logs"][gov]["chancellorVeto"] and "enactedPolicy" in data["logs"][gov]:
+                    veto_and_td = True
+
+                # If Special Election
+                if "specialElection" in data["logs"][gov]:
+                    special_election_data[data["logs"][gov]["specialElection"]] = 1
+
+                # If bullet
+                if "execution" in data["logs"][gov]:
+                    # If first bullet
+                    if not 1 in bullet_data_1:
+                        bullet_data_1[data["logs"][gov]["execution"]] = 1
+                    # If second bullet
+                    else:
+                        bullet_data_2[data["logs"][gov]["execution"]] = 1
+
+            # Neined government
+            else:
+                # President seat number
+                for pres in range(0, 7):
+                    gov_data.append(1 if data["logs"][gov]["presidentId"] == pres else 0)
+
+                # Chancellor seat number
+                for chan in range(0, 7):
+                    gov_data.append(1 if data["logs"][gov]["chancellorId"] == chan else 0)
+
+                # Empty data
+                for fill in range(8):
+                    gov_data.append(0)
+
+                # Encode enacted policy if topdecked
+                if "enactedPolicy" in data["logs"][gov]:
+                    gov_data.append(0 if data["logs"][gov]["enactedPolicy"] == "fascist" else 1)
+                    gov_data.append(1 if data["logs"][gov]["enactedPolicy"] == "fascist" else 0)
+                else:
+                    gov_data.append(0)
+                    gov_data.append(0)
+
+                # Vote data
+                for seat in range(0, 7):
+                    gov_data.append(1 if data["logs"][gov]["votes"][seat] else 0)
+
+            # If the government was a topdeck
+            if (len(data["logs"][gov]) == 4 and ("enactedPolicy" in data["logs"][gov])) or veto_and_td:
+                topdeck.append(1)
+            else:
+                topdeck.append(0)
+
+            # If Hitler was elected in HZ
+            if len(data["logs"][gov]) == 4 and "hitler" in data["logs"][gov] and fas_cards_played >= 3:
+                game_outed[data["logs"][gov]["chancellorId"]] = 1
+                game_hitler[data["logs"][gov]["chancellorId"]] = 1
+
+            # If Hitler was shot at any point
+            if "execution" in data["logs"][gov] and "hitler" in data["logs"][gov]:
+                game_outed[data["logs"][gov]["execution"]] = 1
+                game_hitler[data["logs"][gov]["execution"]] = 1
+
+            # Encode chancellors in HZ being CNH
+            if len(data["logs"][gov]) >= 5 and fas_cards_played >= 3:
+                game_cnh[data["logs"][gov]["chancellorId"]] = 1
+
+            # All the people confirmed lib are also CNH, for example after inv
+            for seat in range(7):
+                game_cnh[seat] = game_cnh[seat] | confirmed[seat]
+
+            if "enactedPolicy" in data["logs"][gov]:
+                if data["logs"][gov]["enactedPolicy"] == "fascist":
+                    fas_cards_played += 1
+                else:
+                    lib_cards_played += 1
+
+            # Fill empty data with 0s
+            for i in range(len(gov_data), 31):
+                gov_data.append(0)
+
+            game_data.append(gov_data + investigation_data + special_election_data + bullet_data_1 + bullet_data_2 + topdeck + confirmed + game_outed + game_hitler + game_cnh)
+
+    return [game_data]
+
+def convert_to_json(file_name):
+    
+    data = {}
+    data["logs"] = []
+
+    with open(file_name) as file_in:
+        lines = file_in.readlines()
+
+    # Create players list that stores my_seat as liberal
+    my_seat_index = int(re.split('SEAT', lines[0])[1]) - 1
+    data["players"] = []
+    for seat in range(7):
+        seat_data = {}
+        seat_data["role"] = "liberal" if seat == my_seat_index else "not_me"
+        data["players"].append(seat_data)
+
+    # Create government logs
+    for line in lines[1:]:
+
+        # Create dict to represent this government
+        gov = {}
+        # Votes list
+        gov["votes"] = (list(re.split(' - ', line)[0]))
+        # Convert to boolean
+        for seat in range(7):
+            gov["votes"][seat] = gov["votes"][seat] == "1"
+
+        # President and chancellor Ids
+        gov["presidentId"] = int(re.split(' - ', line)[1][0]) - 1
+        gov["chancellorId"] = int(re.split(' - ', line)[1][1]) - 1
+
+        # If the gov was played
+        if len(line) > 15:
+
+            # President claim
+            reds = re.split(' - ', line)[1].split()[1].count('R')
+            # Create dict
+            gov["presidentClaim"] = {}
+            # Number of reds and blues claimed
+            gov["presidentClaim"]["reds"] = reds
+            gov["presidentClaim"]["blues"] = 3 - reds
+
+            # Chancellor claim
+            reds = re.split(' - ', line)[1].split()[2].count('R')
+            # Create dict
+            gov["chancellorClaim"] = {}
+            # Number of reds and blues claimed
+            gov["chancellorClaim"]["reds"] = reds
+            gov["chancellorClaim"]["blues"] = 2 - reds
+
+            # Enacted policy
+            policy = re.split(' - ', line)[1].split()[3]
+            gov["enactedPolicy"] = "fascist" if policy == 'R' else "liberal"
+
+            # If a special action (inv, se, bullet) was taken or veto took place
+            if line.count('-') == 2:
+                # If investigation
+                if "INV" in line:
+                    gov["investigationId"] = int(re.split(' - ', line)[2].split()[1]) - 1
+                    gov["investigationClaim"] = "liberal" if re.split(' - ', line)[2].split()[2] == "LIB" else "fascist"
+                
+                # If special election
+                if "SE" in line:
+                    gov["specialElection"] = int(re.split(' - ', line)[2].split()[1]) - 1
+                
+                # If bullet
+                if "KILL" in line:
+                    gov["execution"] = int(re.split(' - ', line)[2].split()[1]) - 1
+
+                if "VETO" in line:
+                    gov["presidentVeto"] = True
+                    gov["chancellorVeto"] = True
+        
+        # Check if this gov was a topdeck
+        elif len(line) == 15:
+            policy = re.split(' - ', line)[1].split()[1]
+            gov["enactedPolicy"] = "fascist" if policy == 'R' else "liberal"
+
+        if ("H" in line):
+            gov["hitler"] = True
+
+        # Append this gov to the data
+        data["logs"].append(gov)
+
+    new_file_name = "game_out.json"
+    with open(new_file_name, 'w') as file_out:
+        json.dump(data, file_out)
+
+    return new_file_name
