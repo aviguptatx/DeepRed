@@ -27,15 +27,15 @@ with torch.no_grad():
     torch.cuda.empty_cache()
 torch.cuda.empty_cache()
 
-# Recurrent Neural Network
+# Recurrent Neural Network (LSTM)
 class RNN(nn.Module):
-    def __init__(self, n_inputs, n_neurons, X_in, seq_lengths):
+    def __init__(self, n_inputs, n_hidden, X_in, seq_lengths):
         super(RNN, self).__init__()
-        self.rnn = nn.LSTM(n_inputs, n_neurons, batch_first=True, num_layers=1, dropout=0.0)
-        self.n_neurons = n_neurons
+        self.rnn = nn.LSTM(n_inputs, n_hidden, batch_first=True, num_layers=1, dropout=0.0)
+        self.n_hidden = n_hidden
         self.X = X_in
         self.seq_lengths = seq_lengths
-        self.FC = nn.Linear(self.n_neurons, 7)
+        self.FC = nn.Linear(self.n_hidden, 7)
     def forward(self):
         # Initialize the hidden state with all zeroes
         self.init_hidden()
@@ -49,10 +49,10 @@ class RNN(nn.Module):
 
         return out
     def init_hidden(self):
-        self.hx = Variable(torch.zeros(1, len(self.X), self.n_neurons).to(device))
+        self.hx = Variable(torch.zeros(1, len(self.X), self.n_hidden).to(device))
 
 # Size of input layer
-N_INPUT = 89
+N_HIDDEN = 89
 # Size of hidden layer
 N_NEURONS = 17
 
@@ -68,13 +68,12 @@ game_length = len(X[0])
 X = torch.as_tensor(X, dtype=torch.float32).to(device)
 
 # Create model
-model = RNN(N_INPUT, N_NEURONS, X, [game_length]).to(device)
+model = RNN(N_HIDDEN, N_NEURONS, X, [game_length]).to(device)
 
-# Load the correct model parameters
+# Load the correct model parameters for the current game length
 parameter_file_name = "parameters\parameters-" + str(game_length) + ".pt"
 model.load_state_dict(torch.load(parameter_file_name, map_location=device))
 
-# Get prediction
+# Get and print prediction
 prediction = model()
-
 print(prediction)

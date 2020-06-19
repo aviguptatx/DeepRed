@@ -1,6 +1,4 @@
 \games
 \__pycache__
 \.vscode
-\parameters
-game_in.txt
 game_out.json

@@ -2,6 +2,19 @@ import json
 import re
 
 def load_game(file_name):
+    """
+    Loads game information from a json file and populates the input layer of the LSTM
+
+    Parameters
+    ----------
+    file_name : str
+        Name of json file to be parsed and converted to input layer
+
+    Returns
+    -------
+    list
+        List of containing one element: the data for this game
+    """
 
     game_data = []
     game_outed = [0] * 7
@@ -37,6 +50,7 @@ def load_game(file_name):
             veto_and_td = False
             # Lenth 31 (1-7 - pres, 8-14 chanc, 15-18 pres claim, 19-21 chanc claim, 22 veto, 23 blue, 24 red, 25-31 vote data)
             gov_data = []
+            # Topdeck data
             topdeck = []
 
             # If the government was played
@@ -180,7 +194,30 @@ def load_game(file_name):
     return [game_data]
 
 def convert_to_json(file_name):
+    """
+    Takes a file containing plaintext game notation and converts it to a json file that can then be interpreted by load_game()
+     
+    Example: file_name is the name of a file with the following plaintext game notation:
+
+    SEAT 1
+    1111111 - 15 RRB RB B
+
+    This method will take that game notation and convert it to a json file containing the following, which can be interpreted by load_game()
+
+    {"logs": [{"votes": [true, true, true, true, true, true, true], "presidentId": 0, "chancellorId": 4, "presidentClaim": {"reds": 2, "blues": 1}, "chancellorClaim": {"reds": 1, "blues": 1}, "enactedPolicy": "liberal"}], 
+    "players": [{"role": "liberal"}, {"role": "not_me"}, {"role": "not_me"}, {"role": "not_me"}, {"role": "not_me"}, {"role": "not_me"}, {"role": "not_me"}]}
     
+    Parameters
+    ----------
+    file_name : str
+        Name of plaintext file to be parsed and converted to json file
+
+    Returns
+    -------
+    new_file_name : str
+        Name of a new file containing game information encoded in json format
+    """
+
     data = {}
     data["logs"] = []
 
