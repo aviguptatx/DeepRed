@@ -2,15 +2,15 @@
   <a href="https://github.com/aviguptatx/SecretHitlerAI">
   </a>
 
-  <h3 align="center">Secret Hitler AI</h3>
+  <h3 align="center">Deep Red</h3>
 
   <p align="center">
     LSTM-RNN for Hidden Role Prediction in Secret Hitler using PyTorch
     <br />
     <br />
-    <a href="https://github.com/aviguptatx/SecretHitlerAI/issues">Report Bug</a>
+    <a href="https://github.com/aviguptatx/DeepRed/issues">Report Bug</a>
     ·
-    <a href="https://github.com/aviguptatx/SecretHitlerAI/issues">Request Feature</a>
+    <a href="https://github.com/aviguptatx/DeepRed/issues">Request Feature</a>
   </p>
 </p>
 
@@ -34,7 +34,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-Long Short-Term Memory Recurrent Neural Network for hidden role prediction in 7-player [Secret Hitler](https://en.wikipedia.org/wiki/Secret_Hitler) using [PyTorch](https://pytorch.org/). The program takes in plaintext game data, which is eventually converted to a one-hot encoded input layer for the network. The network returns a Tensor containing probabilities that each player is a fascist.
+Long short-term memory recurrent neural network for hidden role prediction in 7-player [Secret Hitler](https://en.wikipedia.org/wiki/Secret_Hitler) using [PyTorch](https://pytorch.org/). The program takes in plaintext game data, which is eventually converted to a one-hot encoded input layer for the network. The network returns a Tensor containing probabilities that each player is a fascist.
 
 Secret Hitler is a game of lies and deception, and more formally, it is a game of both imcomplete and imperfect information. Thus, predicting the role of a given player in Secret Hitler is actually quite difficult and the network required lots of fine tuning and iteration to get to the level of accuracy it currently achieves.
 
@@ -62,7 +62,7 @@ pip install torch==1.5.0 torchvision==0.6.0
  
 Just clone the repo. As long as the prerequisites have been filled, the program should be ready to run.
 ```sh
-git clone https://github.com/aviguptatx/SecretHitlerAI.git
+git clone https://github.com/aviguptatx/DeepRed.git
 ```
 
 <!-- USAGE EXAMPLES -->
@@ -90,7 +90,7 @@ Avinash Gupta - aviguptatx@gmail.com
 
 Varun Gorti - varungorti@gmail.com
 
-Project Link: [https://github.com/aviguptatx/SecretHitlerAI](https://github.com/aviguptatx/SecretHitlerAI)
+Project Link: [https://github.com/aviguptatx/DeepRed](https://github.com/aviguptatx/DeepRed)
 
 <!-- ACKNOWLEDGEMENTS -->
 ## Acknowledgements
